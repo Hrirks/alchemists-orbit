@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'bridge/frb_generated.dart';
+import 'package:alchemists_orbit/src/rust/frb_generated.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -109,10 +109,7 @@ class _GameScreenState extends State<GameScreen>
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Colors.purple.withValues(alpha: 0.3),
-                    Colors.transparent,
-                  ],
+                  colors: [Colors.purple.withOpacity(0.3), Colors.transparent],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -170,7 +167,7 @@ class _GameScreenState extends State<GameScreen>
                                 Icon(
                                   Icons.bubble_chart,
                                   size: 64,
-                                  color: Colors.purple.withValues(alpha: 0.5),
+                                  color: Colors.purple.withOpacity(0.5),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
@@ -212,7 +209,7 @@ class GamePainter extends CustomPainter {
       // Draw gravity well indicator
       final center = Offset(size.width / 2, size.height / 2);
       final paint = Paint()
-        ..color = Colors.purple.withValues(alpha: 0.2)
+        ..color = Colors.purple.withOpacity(0.2)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
 
@@ -226,7 +223,7 @@ class GamePainter extends CustomPainter {
         center,
         8,
         Paint()
-          ..color = Colors.purple.withValues(alpha: 0.5)
+          ..color = Colors.purple.withOpacity(0.5)
           ..style = PaintingStyle.fill,
       );
     }

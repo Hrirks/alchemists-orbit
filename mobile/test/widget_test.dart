@@ -5,17 +5,16 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile/main.dart';
+import 'package:alchemists_orbit/main.dart';
 
 void main() {
-  testWidgets('Game screen renders character', (WidgetTester tester) async {
-    await tester.pumpWidget(const GameStackApp());
+  testWidgets('Game screen renders', (WidgetTester tester) async {
+    await tester.pumpWidget(const AlchemistsOrbitApp());
     await tester.pump();
 
-    expect(find.byKey(const ValueKey('character_box')), findsOneWidget);
-    expect(find.text('Game Stack'), findsOneWidget);
+    expect(find.text('Score'), findsOneWidget);
+    expect(find.text('Level'), findsOneWidget);
   });
 }

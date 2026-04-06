@@ -10,9 +10,10 @@ crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 alchemists-orbit-native = { path = "../native" }
-flutter_rust_bridge.workspace = true
+flutter_rust_bridge = "=2.11.1"
 anyhow.workspace = true
 tokio.workspace = true
+futures = "0.3"
 
 [build-dependencies]
 flutter_rust_bridge_codegen = "2.5"

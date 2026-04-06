@@ -1,3 +1,4 @@
+mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be accurate, and you can change it according to your needs. */
 use alchemists_orbit_native::{PhysicsWorld, OrbTier, GameEvent};
 use flutter_rust_bridge::frb;
 use std::sync::{Arc, Mutex};
@@ -18,7 +19,8 @@ impl GameApi {
     /// Drop an orb at the specified position
     #[frb(sync)]
     pub fn drop_orb(&self, x: f32, y: f32, tier: u8) -> Result<(), String> {
-        let mut world = self.physics_world.lock().map_err(|e| e.to_string())?;
+        let mut world = self.physics_world.lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         world.drop_orb(x, y, tier);
         Ok(())
     }
@@ -26,7 +28,8 @@ impl GameApi {
     /// Step the physics simulation forward by delta_time seconds
     #[frb(sync)]
     pub fn step_physics(&self, delta_time: f32) -> Result<(), String> {
-        let mut world = self.physics_world.lock().map_err(|e| e.to_string())?;
+        let mut world = self.physics_world.lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         world.step(delta_time);
         Ok(())
     }

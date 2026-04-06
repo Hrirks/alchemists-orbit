@@ -6,7 +6,7 @@ authors.workspace = true
 license.workspace = true
 
 [lib]
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
 bevy.workspace = true

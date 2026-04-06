@@ -1,0 +1,4 @@
+rust_input: crate::api
+rust_root: rust/api/
+dart_output: mobile/lib/bridge/
+dart_format_line_length: 120

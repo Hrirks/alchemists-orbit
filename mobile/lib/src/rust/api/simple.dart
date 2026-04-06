@@ -6,5 +6,13 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-String greet({required String name}) =>
-    RustLib.instance.api.crateApiSimpleGreet(name: name);
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<GameApi>>
+abstract class GameApi implements RustOpaqueInterface {
+  /// Drop an orb at the specified position
+  void dropOrb({required double x, required double y, required int tier});
+
+  factory GameApi() => RustLib.instance.api.crateApiSimpleGameApiNew();
+
+  /// Step the physics simulation forward by delta_time seconds
+  void stepPhysics({required double deltaTime});
+}

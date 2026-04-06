@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:alchemists_orbit/src/rust/frb_generated.dart';
+import 'package:alchemists_orbit/src/rust/api/simple.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,10 +51,15 @@ class _GameScreenState extends State<GameScreen>
   int _level = 1;
   bool _gameStarted = false;
   late AnimationController _animationController;
+  late GameApi _gameApi;
+  DateTime? _lastPhysicsUpdate;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize GameApi
+    _gameApi = GameApi();
 
     // Initialize animation controller for physics updates
     _animationController = AnimationController(
@@ -65,8 +71,20 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _updatePhysics() {
-    // This will be called every frame
-    // TODO: Call Rust physics step
+    // Calculate delta time
+    final now = DateTime.now();
+    if (_lastPhysicsUpdate != null) {
+      final deltaTime =
+          now.difference(_lastPhysicsUpdate!).inMicroseconds / 1000000.0;
+
+      // Step physics (target 60 FPS, delta ~0.016s)
+      try {
+        _gameApi.stepPhysics(deltaTime: deltaTime);
+      } catch (e) {
+        debugPrint('Physics step error: $e');
+      }
+    }
+    _lastPhysicsUpdate = now;
   }
 
   void _startGame() {
@@ -81,8 +99,13 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _dropOrb(Offset position) {
-    // TODO: Call Rust API to drop orb
-    // api.dropOrb(position.dx, position.dy, 1);
+    // Call Rust API to drop orb (tier 1 for now)
+    try {
+      _gameApi.dropOrb(x: position.dx, y: position.dy, tier: 1);
+      debugPrint('Dropped orb at (${position.dx}, ${position.dy})');
+    } catch (e) {
+      debugPrint('Drop orb error: $e');
+    }
 
     if (!_gameStarted) {
       _startGame();

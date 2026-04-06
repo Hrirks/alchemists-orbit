@@ -1,0 +1,29 @@
+# OS
+.DS_Store
+
+# Flutter / Dart
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+
+# IDE
+.idea/
+mobile/.idea/
+
+# Logs / temp
+*.log
+tmp/
+
+# Rust
+rust/target/
+rust/Cargo.lock
+**/*.rs.bk
+**/*.pdb
+
+# flutter_rust_bridge generated code
+mobile/lib/bridge/
+
+# Local tool outputs
+.maestro/

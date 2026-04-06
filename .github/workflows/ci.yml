@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Rust format check
+        run: cargo fmt --check
+        working-directory: rust
+
+      - name: Rust clippy
+        run: cargo clippy -- -D warnings
+        working-directory: rust
+
+      - name: Rust test
+        run: cargo test --verbose
+        working-directory: rust
+
+      - name: Rust build
+        run: cargo build --release
+        working-directory: rust
+
+  flutter:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.2
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+        working-directory: mobile
+
+      - name: Flutter analyze
+        run: flutter analyze
+        working-directory: mobile
+
+      - name: Flutter test
+        run: flutter test
+        working-directory: mobile
+
+      - name: Flutter web wasm build
+        run: flutter build web --wasm --release -O4
+        working-directory: mobile

@@ -1,0 +1,8 @@
+appId: com.example.mobile
+---
+- launchApp
+- assertVisible: "Game Stack"
+- extendedWaitUntil:
+    visible: "status: active"
+    timeout: 8000
+- assertVisible: "Character"

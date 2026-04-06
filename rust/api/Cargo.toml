@@ -1,0 +1,18 @@
+[package]
+name = "alchemists-orbit-api"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+alchemists-orbit-native = { path = "../native" }
+flutter_rust_bridge.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+
+[build-dependencies]
+flutter_rust_bridge_codegen = "2.5"

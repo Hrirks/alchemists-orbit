@@ -1,0 +1,24 @@
+[package]
+name = "alchemists-orbit-native"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+bevy.workspace = true
+bevy_rapier2d.workspace = true
+flutter_rust_bridge.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(target_os = "android")'.dependencies]
+# Android-specific dependencies if needed
+
+[target.'cfg(target_os = "ios")'.dependencies]
+# iOS-specific dependencies if needed

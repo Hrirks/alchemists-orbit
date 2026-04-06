@@ -1,0 +1,1 @@
+String resolveWebApiBaseUrl() => '/api';

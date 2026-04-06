@@ -1,0 +1,8 @@
+.git
+**/.git
+**/.dart_tool
+**/build
+**/.idea
+**/.DS_Store
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies

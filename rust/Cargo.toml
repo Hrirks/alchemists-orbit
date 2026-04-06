@@ -1,0 +1,29 @@
+[workspace]
+members = ["native", "api"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Alchemist's Orbit Team"]
+license = "MIT"
+
+[workspace.dependencies]
+# Bevy and physics
+bevy = { version = "0.14", default-features = false, features = ["bevy_winit", "bevy_render"] }
+bevy_rapier2d = { version = "0.27", features = ["simd-stable", "debug-render-2d"] }
+
+# Flutter Rust Bridge
+flutter_rust_bridge = "2.5"
+
+# Utilities
+anyhow = "1.0"
+tokio = { version = "1.40", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

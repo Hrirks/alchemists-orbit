@@ -1,50 +1,47 @@
-use alchemists_orbit_native::{GameEvent, OrbTier, PhysicsWorld};
+// Bridge API for Domino Chain Reaction
+// Exposes domino-game crate to Flutter via flutter_rust_bridge
+
+use domino_game::DominoType;
+pub use domino_game::PlaceDominoCmd;
 use flutter_rust_bridge::frb;
-use std::sync::{Arc, Mutex};
 
 #[flutter_rust_bridge::frb(init)]
 pub fn init_app() {
-    // Default utilities - feel free to customize
     flutter_rust_bridge::setup_default_user_utils();
 }
 
-/// The main API exposed to Flutter
-pub struct GameApi {
-    physics_world: Arc<Mutex<PhysicsWorld>>,
-}
+// Re-export API types for Flutter bindings
+// These will be automatically converted to Dart classes
 
-// SAFETY: PhysicsWorld operations are protected by Mutex
-// and we ensure all Rust API calls happen on the same thread
-unsafe impl Send for GameApi {}
-unsafe impl Sync for GameApi {}
+/// Place a domino command
+#[frb(sync)]
+pub fn create_place_domino_cmd(x: f32, y: f32, angle: f32, domino_type: u8) -> PlaceDominoCmd {
+    let dt = match domino_type {
+        0 => DominoType::Standard,
+        1 => DominoType::Heavy,
+        2 => DominoType::Tall,
+        _ => DominoType::Standard,
+    };
 
-impl GameApi {
-    #[frb(sync)]
-    pub fn new() -> Self {
-        Self {
-            physics_world: Arc::new(Mutex::new(PhysicsWorld::new())),
-        }
-    }
-
-    /// Drop an orb at the specified position
-    #[frb(sync)]
-    pub fn drop_orb(&self, x: f32, y: f32, tier: u8) -> Result<(), String> {
-        let mut world = self
-            .physics_world
-            .lock()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        world.drop_orb(x, y, tier);
-        Ok(())
-    }
-
-    /// Step the physics simulation forward by delta_time seconds
-    #[frb(sync)]
-    pub fn step_physics(&self, delta_time: f32) -> Result<(), String> {
-        let mut world = self
-            .physics_world
-            .lock()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        world.step(delta_time);
-        Ok(())
+    PlaceDominoCmd {
+        x,
+        y,
+        angle,
+        domino_type: dt,
     }
 }
+
+/// Get domino type properties for UI display
+#[frb(sync)]
+pub fn get_domino_dimensions(domino_type: u8) -> (f32, f32) {
+    let dt = match domino_type {
+        0 => DominoType::Standard,
+        1 => DominoType::Heavy,
+        2 => DominoType::Tall,
+        _ => DominoType::Standard,
+    };
+    dt.dimensions()
+}
+
+// Note: The actual game API (PhysicsWorld, etc.) will be implemented in next issues
+// For now, we just expose the type system to Flutter

@@ -3,6 +3,7 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
+import 'api/physics.dart';
 import 'api/simple.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -66,7 +67,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 888457181;
+  int get rustContentHash => 832592753;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -77,27 +78,59 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  void crateApiSimpleGameApiDropOrb({
-    required GameApi that,
+  PlaceDominoCmd crateApiSimpleCreatePlaceDominoCmd({
     required double x,
     required double y,
-    required int tier,
+    required double angle,
+    required int dominoType,
   });
 
-  GameApi crateApiSimpleGameApiNew();
+  int crateApiPhysicsDominoCount();
 
-  void crateApiSimpleGameApiStepPhysics({
-    required GameApi that,
-    required double deltaTime,
-  });
+  ChainStatus crateApiPhysicsGetChainStatus();
+
+  (double, double) crateApiSimpleGetDominoDimensions({required int dominoType});
+
+  List<DominoTransform> crateApiPhysicsGetDominoTransforms();
+
+  List<BridgeEvent> crateApiPhysicsGetEvents();
 
   Future<void> crateApiSimpleInitApp();
 
-  RustArcIncrementStrongCountFnType get rust_arc_increment_strong_count_GameApi;
+  Future<PhysicsWorld> crateApiPhysicsPhysicsWorldDefault();
 
-  RustArcDecrementStrongCountFnType get rust_arc_decrement_strong_count_GameApi;
+  int crateApiPhysicsPlaceDomino({
+    required double x,
+    required double y,
+    required double angle,
+    required int dominoType,
+  });
 
-  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_GameApiPtr;
+  int crateApiPhysicsProcessCommands({
+    required List<BridgePlaceDominoCmd> commands,
+  });
+
+  void crateApiPhysicsResetWorld();
+
+  void crateApiPhysicsStep({required double deltaTime});
+
+  void crateApiPhysicsStepMultiple({
+    required int steps,
+    required double deltaTime,
+  });
+
+  double crateApiPhysicsTimeElapsed();
+
+  bool crateApiPhysicsTriggerDominoPush();
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_PlaceDominoCmd;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_PlaceDominoCmd;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_PlaceDominoCmdPtr;
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -109,44 +142,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  void crateApiSimpleGameApiDropOrb({
-    required GameApi that,
+  PlaceDominoCmd crateApiSimpleCreatePlaceDominoCmd({
     required double x,
     required double y,
-    required int tier,
+    required double angle,
+    required int dominoType,
   }) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi(
-            that,
-            serializer,
-          );
           sse_encode_f_32(x, serializer);
           sse_encode_f_32(y, serializer);
-          sse_encode_u_8(tier, serializer);
+          sse_encode_f_32(angle, serializer);
+          sse_encode_u_8(dominoType, serializer);
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1)!;
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: sse_decode_String,
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPlaceDominoCmd,
+          decodeErrorData: null,
         ),
-        constMeta: kCrateApiSimpleGameApiDropOrbConstMeta,
-        argValues: [that, x, y, tier],
+        constMeta: kCrateApiSimpleCreatePlaceDominoCmdConstMeta,
+        argValues: [x, y, angle, dominoType],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiSimpleGameApiDropOrbConstMeta =>
+  TaskConstMeta get kCrateApiSimpleCreatePlaceDominoCmdConstMeta =>
       const TaskConstMeta(
-        debugName: "GameApi_drop_orb",
-        argNames: ["that", "x", "y", "tier"],
+        debugName: "create_place_domino_cmd",
+        argNames: ["x", "y", "angle", "dominoType"],
       );
 
   @override
-  GameApi crateApiSimpleGameApiNew() {
+  int crateApiPhysicsDominoCount() {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
@@ -154,52 +185,112 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
         },
         codec: SseCodec(
-          decodeSuccessData:
-              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi,
+          decodeSuccessData: sse_decode_u_32,
           decodeErrorData: null,
         ),
-        constMeta: kCrateApiSimpleGameApiNewConstMeta,
+        constMeta: kCrateApiPhysicsDominoCountConstMeta,
         argValues: [],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiSimpleGameApiNewConstMeta =>
-      const TaskConstMeta(debugName: "GameApi_new", argNames: []);
+  TaskConstMeta get kCrateApiPhysicsDominoCountConstMeta =>
+      const TaskConstMeta(debugName: "domino_count", argNames: []);
 
   @override
-  void crateApiSimpleGameApiStepPhysics({
-    required GameApi that,
-    required double deltaTime,
-  }) {
+  ChainStatus crateApiPhysicsGetChainStatus() {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi(
-            that,
-            serializer,
-          );
-          sse_encode_f_32(deltaTime, serializer);
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 3)!;
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: sse_decode_String,
+          decodeSuccessData: sse_decode_chain_status,
+          decodeErrorData: null,
         ),
-        constMeta: kCrateApiSimpleGameApiStepPhysicsConstMeta,
-        argValues: [that, deltaTime],
+        constMeta: kCrateApiPhysicsGetChainStatusConstMeta,
+        argValues: [],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiSimpleGameApiStepPhysicsConstMeta =>
+  TaskConstMeta get kCrateApiPhysicsGetChainStatusConstMeta =>
+      const TaskConstMeta(debugName: "get_chain_status", argNames: []);
+
+  @override
+  (double, double) crateApiSimpleGetDominoDimensions({
+    required int dominoType,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_u_8(dominoType, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_record_f_32_f_32,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleGetDominoDimensionsConstMeta,
+        argValues: [dominoType],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleGetDominoDimensionsConstMeta =>
       const TaskConstMeta(
-        debugName: "GameApi_step_physics",
-        argNames: ["that", "deltaTime"],
+        debugName: "get_domino_dimensions",
+        argNames: ["dominoType"],
       );
+
+  @override
+  List<DominoTransform> crateApiPhysicsGetDominoTransforms() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_domino_transform,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPhysicsGetDominoTransformsConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhysicsGetDominoTransformsConstMeta =>
+      const TaskConstMeta(debugName: "get_domino_transforms", argNames: []);
+
+  @override
+  List<BridgeEvent> crateApiPhysicsGetEvents() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_bridge_event,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPhysicsGetEventsConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhysicsGetEventsConstMeta =>
+      const TaskConstMeta(debugName: "get_events", argNames: []);
 
   @override
   Future<void> crateApiSimpleInitApp() {
@@ -210,7 +301,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 7,
             port: port_,
           );
         },
@@ -228,39 +319,237 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiSimpleInitAppConstMeta =>
       const TaskConstMeta(debugName: "init_app", argNames: []);
 
+  @override
+  Future<PhysicsWorld> crateApiPhysicsPhysicsWorldDefault() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 8,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_physics_world,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPhysicsPhysicsWorldDefaultConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhysicsPhysicsWorldDefaultConstMeta =>
+      const TaskConstMeta(debugName: "physics_world_default", argNames: []);
+
+  @override
+  int crateApiPhysicsPlaceDomino({
+    required double x,
+    required double y,
+    required double angle,
+    required int dominoType,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_f_32(x, serializer);
+          sse_encode_f_32(y, serializer);
+          sse_encode_f_32(angle, serializer);
+          sse_encode_u_8(dominoType, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_32,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPhysicsPlaceDominoConstMeta,
+        argValues: [x, y, angle, dominoType],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhysicsPlaceDominoConstMeta => const TaskConstMeta(
+    debugName: "place_domino",
+    argNames: ["x", "y", "angle", "dominoType"],
+  );
+
+  @override
+  int crateApiPhysicsProcessCommands({
+    required List<BridgePlaceDominoCmd> commands,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_bridge_place_domino_cmd(commands, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_32,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPhysicsProcessCommandsConstMeta,
+        argValues: [commands],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhysicsProcessCommandsConstMeta =>
+      const TaskConstMeta(
+        debugName: "process_commands",
+        argNames: ["commands"],
+      );
+
+  @override
+  void crateApiPhysicsResetWorld() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPhysicsResetWorldConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhysicsResetWorldConstMeta =>
+      const TaskConstMeta(debugName: "reset_world", argNames: []);
+
+  @override
+  void crateApiPhysicsStep({required double deltaTime}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_f_32(deltaTime, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPhysicsStepConstMeta,
+        argValues: [deltaTime],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhysicsStepConstMeta =>
+      const TaskConstMeta(debugName: "step", argNames: ["deltaTime"]);
+
+  @override
+  void crateApiPhysicsStepMultiple({
+    required int steps,
+    required double deltaTime,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_u_32(steps, serializer);
+          sse_encode_f_32(deltaTime, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPhysicsStepMultipleConstMeta,
+        argValues: [steps, deltaTime],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhysicsStepMultipleConstMeta =>
+      const TaskConstMeta(
+        debugName: "step_multiple",
+        argNames: ["steps", "deltaTime"],
+      );
+
+  @override
+  double crateApiPhysicsTimeElapsed() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_f_32,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPhysicsTimeElapsedConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhysicsTimeElapsedConstMeta =>
+      const TaskConstMeta(debugName: "time_elapsed", argNames: []);
+
+  @override
+  bool crateApiPhysicsTriggerDominoPush() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPhysicsTriggerDominoPushConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhysicsTriggerDominoPushConstMeta =>
+      const TaskConstMeta(debugName: "trigger_domino_push", argNames: []);
+
   RustArcIncrementStrongCountFnType
-  get rust_arc_increment_strong_count_GameApi => wire
-      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi;
+  get rust_arc_increment_strong_count_PlaceDominoCmd => wire
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPlaceDominoCmd;
 
   RustArcDecrementStrongCountFnType
-  get rust_arc_decrement_strong_count_GameApi => wire
-      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi;
+  get rust_arc_decrement_strong_count_PlaceDominoCmd => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPlaceDominoCmd;
 
   @protected
-  GameApi
-  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi(
+  PlaceDominoCmd
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPlaceDominoCmd(
     dynamic raw,
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return GameApiImpl.frbInternalDcoDecode(raw as List<dynamic>);
+    return PlaceDominoCmdImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
-  GameApi
-  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi(
+  PlaceDominoCmd
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPlaceDominoCmd(
     dynamic raw,
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return GameApiImpl.frbInternalDcoDecode(raw as List<dynamic>);
-  }
-
-  @protected
-  GameApi
-  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return GameApiImpl.frbInternalDcoDecode(raw as List<dynamic>);
+    return PlaceDominoCmdImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -270,15 +559,184 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool dco_decode_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
+  }
+
+  @protected
+  double dco_decode_box_autoadd_f_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as double;
+  }
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  BridgeEvent dco_decode_bridge_event(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return BridgeEvent(
+      kind: dco_decode_String(arr[0]),
+      dominoId: dco_decode_opt_box_autoadd_u_32(arr[1]),
+      x: dco_decode_opt_box_autoadd_f_32(arr[2]),
+      y: dco_decode_opt_box_autoadd_f_32(arr[3]),
+      angle: dco_decode_opt_box_autoadd_f_32(arr[4]),
+      timestamp: dco_decode_opt_box_autoadd_f_32(arr[5]),
+      totalDominoes: dco_decode_opt_box_autoadd_u_32(arr[6]),
+    );
+  }
+
+  @protected
+  BridgePlaceDominoCmd dco_decode_bridge_place_domino_cmd(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return BridgePlaceDominoCmd(
+      x: dco_decode_f_32(arr[0]),
+      y: dco_decode_f_32(arr[1]),
+      angle: dco_decode_f_32(arr[2]),
+      dominoType: dco_decode_u_8(arr[3]),
+    );
+  }
+
+  @protected
+  ChainStatus dco_decode_chain_status(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return ChainStatus(
+      dominoCount: dco_decode_u_32(arr[0]),
+      fallenCount: dco_decode_u_32(arr[1]),
+      triggered: dco_decode_bool(arr[2]),
+      completed: dco_decode_bool(arr[3]),
+      timeElapsed: dco_decode_f_32(arr[4]),
+    );
+  }
+
+  @protected
+  DominoTransform dco_decode_domino_transform(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return DominoTransform(
+      id: dco_decode_u_32(arr[0]),
+      x: dco_decode_f_32(arr[1]),
+      y: dco_decode_f_32(arr[2]),
+      angle: dco_decode_f_32(arr[3]),
+      dominoType: dco_decode_u_8(arr[4]),
+      isFallen: dco_decode_bool(arr[5]),
+    );
+  }
+
+  @protected
   double dco_decode_f_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
   }
 
   @protected
+  List<BridgeEvent> dco_decode_list_bridge_event(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_bridge_event).toList();
+  }
+
+  @protected
+  List<BridgePlaceDominoCmd> dco_decode_list_bridge_place_domino_cmd(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_bridge_place_domino_cmd)
+        .toList();
+  }
+
+  @protected
+  List<DominoTransform> dco_decode_list_domino_transform(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_domino_transform).toList();
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<SimDomino> dco_decode_list_sim_domino(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_sim_domino).toList();
+  }
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_f_32(raw);
+  }
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_32(raw);
+  }
+
+  @protected
+  PhysicsWorld dco_decode_physics_world(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return PhysicsWorld(
+      dominoes: dco_decode_list_sim_domino(arr[0]),
+      events: dco_decode_list_bridge_event(arr[1]),
+      elapsed: dco_decode_f_32(arr[2]),
+      nextId: dco_decode_u_32(arr[3]),
+      triggered: dco_decode_bool(arr[4]),
+      completed: dco_decode_bool(arr[5]),
+    );
+  }
+
+  @protected
+  (double, double) dco_decode_record_f_32_f_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) {
+      throw Exception('Expected 2 elements, got ${arr.length}');
+    }
+    return (dco_decode_f_32(arr[0]), dco_decode_f_32(arr[1]));
+  }
+
+  @protected
+  SimDomino dco_decode_sim_domino(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return SimDomino(
+      id: dco_decode_u_32(arr[0]),
+      x: dco_decode_f_32(arr[1]),
+      y: dco_decode_f_32(arr[2]),
+      angle: dco_decode_f_32(arr[3]),
+      dominoType: dco_decode_u_8(arr[4]),
+      isFallen: dco_decode_bool(arr[5]),
+      angularVelocity: dco_decode_f_32(arr[6]),
+    );
+  }
+
+  @protected
+  int dco_decode_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
   }
 
   @protected
@@ -300,36 +758,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  GameApi
-  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi(
+  PlaceDominoCmd
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPlaceDominoCmd(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return GameApiImpl.frbInternalSseDecode(
+    return PlaceDominoCmdImpl.frbInternalSseDecode(
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
   }
 
   @protected
-  GameApi
-  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi(
+  PlaceDominoCmd
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPlaceDominoCmd(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return GameApiImpl.frbInternalSseDecode(
-      sse_decode_usize(deserializer),
-      sse_decode_i_32(deserializer),
-    );
-  }
-
-  @protected
-  GameApi
-  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return GameApiImpl.frbInternalSseDecode(
+    return PlaceDominoCmdImpl.frbInternalSseDecode(
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
@@ -343,9 +789,141 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool sse_decode_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
+  double sse_decode_box_autoadd_f_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_f_32(deserializer));
+  }
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_32(deserializer));
+  }
+
+  @protected
+  BridgeEvent sse_decode_bridge_event(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_kind = sse_decode_String(deserializer);
+    var var_dominoId = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_x = sse_decode_opt_box_autoadd_f_32(deserializer);
+    var var_y = sse_decode_opt_box_autoadd_f_32(deserializer);
+    var var_angle = sse_decode_opt_box_autoadd_f_32(deserializer);
+    var var_timestamp = sse_decode_opt_box_autoadd_f_32(deserializer);
+    var var_totalDominoes = sse_decode_opt_box_autoadd_u_32(deserializer);
+    return BridgeEvent(
+      kind: var_kind,
+      dominoId: var_dominoId,
+      x: var_x,
+      y: var_y,
+      angle: var_angle,
+      timestamp: var_timestamp,
+      totalDominoes: var_totalDominoes,
+    );
+  }
+
+  @protected
+  BridgePlaceDominoCmd sse_decode_bridge_place_domino_cmd(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_x = sse_decode_f_32(deserializer);
+    var var_y = sse_decode_f_32(deserializer);
+    var var_angle = sse_decode_f_32(deserializer);
+    var var_dominoType = sse_decode_u_8(deserializer);
+    return BridgePlaceDominoCmd(
+      x: var_x,
+      y: var_y,
+      angle: var_angle,
+      dominoType: var_dominoType,
+    );
+  }
+
+  @protected
+  ChainStatus sse_decode_chain_status(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_dominoCount = sse_decode_u_32(deserializer);
+    var var_fallenCount = sse_decode_u_32(deserializer);
+    var var_triggered = sse_decode_bool(deserializer);
+    var var_completed = sse_decode_bool(deserializer);
+    var var_timeElapsed = sse_decode_f_32(deserializer);
+    return ChainStatus(
+      dominoCount: var_dominoCount,
+      fallenCount: var_fallenCount,
+      triggered: var_triggered,
+      completed: var_completed,
+      timeElapsed: var_timeElapsed,
+    );
+  }
+
+  @protected
+  DominoTransform sse_decode_domino_transform(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_u_32(deserializer);
+    var var_x = sse_decode_f_32(deserializer);
+    var var_y = sse_decode_f_32(deserializer);
+    var var_angle = sse_decode_f_32(deserializer);
+    var var_dominoType = sse_decode_u_8(deserializer);
+    var var_isFallen = sse_decode_bool(deserializer);
+    return DominoTransform(
+      id: var_id,
+      x: var_x,
+      y: var_y,
+      angle: var_angle,
+      dominoType: var_dominoType,
+      isFallen: var_isFallen,
+    );
+  }
+
+  @protected
   double sse_decode_f_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getFloat32();
+  }
+
+  @protected
+  List<BridgeEvent> sse_decode_list_bridge_event(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <BridgeEvent>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_bridge_event(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<BridgePlaceDominoCmd> sse_decode_list_bridge_place_domino_cmd(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <BridgePlaceDominoCmd>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_bridge_place_domino_cmd(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<DominoTransform> sse_decode_list_domino_transform(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <DominoTransform>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_domino_transform(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -353,6 +931,94 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<SimDomino> sse_decode_list_sim_domino(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <SimDomino>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_sim_domino(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_f_32(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_32(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  PhysicsWorld sse_decode_physics_world(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_dominoes = sse_decode_list_sim_domino(deserializer);
+    var var_events = sse_decode_list_bridge_event(deserializer);
+    var var_elapsed = sse_decode_f_32(deserializer);
+    var var_nextId = sse_decode_u_32(deserializer);
+    var var_triggered = sse_decode_bool(deserializer);
+    var var_completed = sse_decode_bool(deserializer);
+    return PhysicsWorld(
+      dominoes: var_dominoes,
+      events: var_events,
+      elapsed: var_elapsed,
+      nextId: var_nextId,
+      triggered: var_triggered,
+      completed: var_completed,
+    );
+  }
+
+  @protected
+  (double, double) sse_decode_record_f_32_f_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_field0 = sse_decode_f_32(deserializer);
+    var var_field1 = sse_decode_f_32(deserializer);
+    return (var_field0, var_field1);
+  }
+
+  @protected
+  SimDomino sse_decode_sim_domino(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_u_32(deserializer);
+    var var_x = sse_decode_f_32(deserializer);
+    var var_y = sse_decode_f_32(deserializer);
+    var var_angle = sse_decode_f_32(deserializer);
+    var var_dominoType = sse_decode_u_8(deserializer);
+    var var_isFallen = sse_decode_bool(deserializer);
+    var var_angularVelocity = sse_decode_f_32(deserializer);
+    return SimDomino(
+      id: var_id,
+      x: var_x,
+      y: var_y,
+      angle: var_angle,
+      dominoType: var_dominoType,
+      isFallen: var_isFallen,
+      angularVelocity: var_angularVelocity,
+    );
+  }
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint32();
   }
 
   @protected
@@ -379,46 +1045,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  bool sse_decode_bool(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getUint8() != 0;
-  }
-
-  @protected
   void
-  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi(
-    GameApi self,
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPlaceDominoCmd(
+    PlaceDominoCmd self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
-      (self as GameApiImpl).frbInternalSseEncode(move: true),
+      (self as PlaceDominoCmdImpl).frbInternalSseEncode(move: true),
       serializer,
     );
   }
 
   @protected
   void
-  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi(
-    GameApi self,
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPlaceDominoCmd(
+    PlaceDominoCmd self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
-      (self as GameApiImpl).frbInternalSseEncode(move: false),
-      serializer,
-    );
-  }
-
-  @protected
-  void
-  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGameApi(
-    GameApi self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(
-      (self as GameApiImpl).frbInternalSseEncode(move: null),
+      (self as PlaceDominoCmdImpl).frbInternalSseEncode(move: null),
       serializer,
     );
   }
@@ -430,9 +1077,111 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint8(self ? 1 : 0);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_f_32(double self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_32(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self, serializer);
+  }
+
+  @protected
+  void sse_encode_bridge_event(BridgeEvent self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.kind, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.dominoId, serializer);
+    sse_encode_opt_box_autoadd_f_32(self.x, serializer);
+    sse_encode_opt_box_autoadd_f_32(self.y, serializer);
+    sse_encode_opt_box_autoadd_f_32(self.angle, serializer);
+    sse_encode_opt_box_autoadd_f_32(self.timestamp, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.totalDominoes, serializer);
+  }
+
+  @protected
+  void sse_encode_bridge_place_domino_cmd(
+    BridgePlaceDominoCmd self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_32(self.x, serializer);
+    sse_encode_f_32(self.y, serializer);
+    sse_encode_f_32(self.angle, serializer);
+    sse_encode_u_8(self.dominoType, serializer);
+  }
+
+  @protected
+  void sse_encode_chain_status(ChainStatus self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.dominoCount, serializer);
+    sse_encode_u_32(self.fallenCount, serializer);
+    sse_encode_bool(self.triggered, serializer);
+    sse_encode_bool(self.completed, serializer);
+    sse_encode_f_32(self.timeElapsed, serializer);
+  }
+
+  @protected
+  void sse_encode_domino_transform(
+    DominoTransform self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.id, serializer);
+    sse_encode_f_32(self.x, serializer);
+    sse_encode_f_32(self.y, serializer);
+    sse_encode_f_32(self.angle, serializer);
+    sse_encode_u_8(self.dominoType, serializer);
+    sse_encode_bool(self.isFallen, serializer);
+  }
+
+  @protected
   void sse_encode_f_32(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat32(self);
+  }
+
+  @protected
+  void sse_encode_list_bridge_event(
+    List<BridgeEvent> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_bridge_event(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_bridge_place_domino_cmd(
+    List<BridgePlaceDominoCmd> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_bridge_place_domino_cmd(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_domino_transform(
+    List<DominoTransform> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_domino_transform(item, serializer);
+    }
   }
 
   @protected
@@ -443,6 +1192,77 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_list_sim_domino(
+    List<SimDomino> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_sim_domino(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_32(double? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_f_32(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_32(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_physics_world(PhysicsWorld self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_sim_domino(self.dominoes, serializer);
+    sse_encode_list_bridge_event(self.events, serializer);
+    sse_encode_f_32(self.elapsed, serializer);
+    sse_encode_u_32(self.nextId, serializer);
+    sse_encode_bool(self.triggered, serializer);
+    sse_encode_bool(self.completed, serializer);
+  }
+
+  @protected
+  void sse_encode_record_f_32_f_32(
+    (double, double) self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_32(self.$1, serializer);
+    sse_encode_f_32(self.$2, serializer);
+  }
+
+  @protected
+  void sse_encode_sim_domino(SimDomino self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.id, serializer);
+    sse_encode_f_32(self.x, serializer);
+    sse_encode_f_32(self.y, serializer);
+    sse_encode_f_32(self.angle, serializer);
+    sse_encode_u_8(self.dominoType, serializer);
+    sse_encode_bool(self.isFallen, serializer);
+    sse_encode_f_32(self.angularVelocity, serializer);
+  }
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint32(self);
   }
 
   @protected
@@ -467,43 +1287,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putInt32(self);
   }
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putUint8(self ? 1 : 0);
-  }
 }
 
 @sealed
-class GameApiImpl extends RustOpaque implements GameApi {
+class PlaceDominoCmdImpl extends RustOpaque implements PlaceDominoCmd {
   // Not to be used by end users
-  GameApiImpl.frbInternalDcoDecode(List<dynamic> wire)
+  PlaceDominoCmdImpl.frbInternalDcoDecode(List<dynamic> wire)
     : super.frbInternalDcoDecode(wire, _kStaticData);
 
   // Not to be used by end users
-  GameApiImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+  PlaceDominoCmdImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
     : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
 
   static final _kStaticData = RustArcStaticData(
     rustArcIncrementStrongCount:
-        RustLib.instance.api.rust_arc_increment_strong_count_GameApi,
+        RustLib.instance.api.rust_arc_increment_strong_count_PlaceDominoCmd,
     rustArcDecrementStrongCount:
-        RustLib.instance.api.rust_arc_decrement_strong_count_GameApi,
+        RustLib.instance.api.rust_arc_decrement_strong_count_PlaceDominoCmd,
     rustArcDecrementStrongCountPtr:
-        RustLib.instance.api.rust_arc_decrement_strong_count_GameApiPtr,
+        RustLib.instance.api.rust_arc_decrement_strong_count_PlaceDominoCmdPtr,
   );
-
-  /// Drop an orb at the specified position
-  void dropOrb({required double x, required double y, required int tier}) =>
-      RustLib.instance.api.crateApiSimpleGameApiDropOrb(
-        that: this,
-        x: x,
-        y: y,
-        tier: tier,
-      );
-
-  /// Step the physics simulation forward by delta_time seconds
-  void stepPhysics({required double deltaTime}) => RustLib.instance.api
-      .crateApiSimpleGameApiStepPhysics(that: this, deltaTime: deltaTime);
 }

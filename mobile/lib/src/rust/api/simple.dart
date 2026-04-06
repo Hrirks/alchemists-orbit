@@ -6,13 +6,24 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<GameApi>>
-abstract class GameApi implements RustOpaqueInterface {
-  /// Drop an orb at the specified position
-  void dropOrb({required double x, required double y, required int tier});
+/// Place a domino command
+PlaceDominoCmd createPlaceDominoCmd({
+  required double x,
+  required double y,
+  required double angle,
+  required int dominoType,
+}) => RustLib.instance.api.crateApiSimpleCreatePlaceDominoCmd(
+  x: x,
+  y: y,
+  angle: angle,
+  dominoType: dominoType,
+);
 
-  factory GameApi() => RustLib.instance.api.crateApiSimpleGameApiNew();
+/// Get domino type properties for UI display
+(double, double) getDominoDimensions({required int dominoType}) => RustLib
+    .instance
+    .api
+    .crateApiSimpleGetDominoDimensions(dominoType: dominoType);
 
-  /// Step the physics simulation forward by delta_time seconds
-  void stepPhysics({required double deltaTime});
-}
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PlaceDominoCmd>>
+abstract class PlaceDominoCmd implements RustOpaqueInterface {}

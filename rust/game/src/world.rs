@@ -93,7 +93,6 @@ impl GameWorld {
         self.next_id = 0;
         self.triggered = false;
         self.completed = false;
-        self.deterministic_test_mode = false;
         self.body_to_meta.clear();
         self.id_to_body.clear();
         self.trigger_domino_id = None;

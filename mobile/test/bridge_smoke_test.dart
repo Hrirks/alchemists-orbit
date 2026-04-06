@@ -13,6 +13,16 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final hasLocalRustLibrary = File(_localRustLibPath).existsSync();
 
+  void enableDeterministicModeForTest() {
+    setDeterministicTestMode(enabled: true);
+    resetWorld();
+  }
+
+  void disableDeterministicModeAfterTest() {
+    setDeterministicTestMode(enabled: false);
+    resetWorld();
+  }
+
   setUpAll(() async {
     if (hasLocalRustLibrary) {
       await RustLib.init(
@@ -62,8 +72,7 @@ void main() {
   test(
     'physics bridge emits trigger and completion events',
     () {
-      resetWorld();
-      setDeterministicTestMode(enabled: true);
+      enableDeterministicModeForTest();
       placeDomino(x: 100, y: 400, angle: 0, dominoType: 0);
       placeDomino(x: 122, y: 400, angle: 0, dominoType: 0);
       placeDomino(x: 144, y: 400, angle: 0, dominoType: 0);
@@ -82,7 +91,7 @@ void main() {
       final status = getChainStatus();
       expect(status.completed, isTrue);
       expect(status.fallenCount, equals(status.dominoCount));
-      setDeterministicTestMode(enabled: false);
+      disableDeterministicModeAfterTest();
     },
     skip: !hasLocalRustLibrary,
   );

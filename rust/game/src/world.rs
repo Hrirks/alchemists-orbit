@@ -168,3 +168,68 @@ fn base_angular_speed(domino_type: DominoType) -> f32 {
         DominoType::Tall => 4.0,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn place_line(world: &mut GameWorld, count: usize, spacing: f32) {
+        for idx in 0..count {
+            world.place_domino(PlaceDominoCmd {
+                x: 100.0 + idx as f32 * spacing,
+                y: 200.0,
+                angle: 0.0,
+                domino_type: DominoType::Standard,
+            });
+        }
+    }
+
+    #[test]
+    fn trigger_requires_dominoes() {
+        let mut world = GameWorld::default();
+        assert!(!world.trigger());
+    }
+
+    #[test]
+    fn chain_progresses_to_completion() {
+        let mut world = GameWorld::default();
+        place_line(&mut world, 3, 40.0);
+
+        assert!(world.trigger());
+
+        for _ in 0..240 {
+            world.step(1.0 / 60.0);
+            if world.status().completed {
+                break;
+            }
+        }
+
+        let status = world.status();
+        assert!(status.completed);
+        assert_eq!(status.fallen_count, 3);
+
+        let events = world.take_events();
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ChainEvent::ChainTriggered { .. })));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ChainEvent::ChainCompleted { .. })));
+    }
+
+    #[test]
+    fn large_spacing_stops_chain() {
+        let mut world = GameWorld::default();
+        place_line(&mut world, 3, 200.0);
+        assert!(world.trigger());
+
+        for _ in 0..240 {
+            world.step(1.0 / 60.0);
+        }
+
+        let status = world.status();
+        assert!(!status.completed);
+        assert!(status.fallen_count >= 1);
+        assert!(status.fallen_count < 3);
+    }
+}

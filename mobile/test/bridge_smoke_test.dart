@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:alchemists_orbit/src/rust/api/simple.dart';
+import 'package:alchemists_orbit/src/rust/api/physics.dart';
 import 'package:alchemists_orbit/src/rust/frb_generated.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -57,4 +58,30 @@ void main() {
       expect(command, isNotNull);
     }
   }, skip: !hasLocalRustLibrary);
+
+  test(
+    'physics bridge emits trigger and completion events',
+    () {
+      resetWorld();
+      placeDomino(x: 100, y: 200, angle: 0, dominoType: 0);
+      placeDomino(x: 140, y: 200, angle: 0, dominoType: 0);
+      placeDomino(x: 180, y: 200, angle: 0, dominoType: 0);
+
+      final triggered = triggerDominoPush();
+      expect(triggered, isTrue);
+
+      stepMultiple(steps: 240, deltaTime: 1 / 60);
+
+      final events = getEvents();
+      final kinds = events.map((event) => event.kind).toList();
+      expect(kinds, contains('ChainTriggered'));
+      expect(kinds, contains('DominoFell'));
+      expect(kinds, contains('ChainCompleted'));
+
+      final status = getChainStatus();
+      expect(status.completed, isTrue);
+      expect(status.fallenCount, equals(status.dominoCount));
+    },
+    skip: !hasLocalRustLibrary,
+  );
 }

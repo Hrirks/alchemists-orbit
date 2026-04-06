@@ -11,6 +11,9 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 void resetWorld() => RustLib.instance.api.crateApiPhysicsResetWorld();
 
+void setDeterministicTestMode({required bool enabled}) => RustLib.instance.api
+    .crateApiPhysicsSetDeterministicTestMode(enabled: enabled);
+
 int placeDomino({
   required double x,
   required double y,

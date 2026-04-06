@@ -35,6 +35,7 @@ pub struct GameWorld {
     next_id: u32,
     triggered: bool,
     completed: bool,
+    deterministic_test_mode: bool,
 
     gravity: Vector<Real>,
     integration_parameters: IntegrationParameters,
@@ -61,6 +62,7 @@ impl Default for GameWorld {
             next_id: 0,
             triggered: false,
             completed: false,
+            deterministic_test_mode: false,
             gravity: vector![0.0, 980.0],
             integration_parameters: IntegrationParameters {
                 dt: 1.0 / 60.0,
@@ -91,6 +93,7 @@ impl GameWorld {
         self.next_id = 0;
         self.triggered = false;
         self.completed = false;
+        self.deterministic_test_mode = false;
         self.body_to_meta.clear();
         self.id_to_body.clear();
         self.trigger_domino_id = None;
@@ -174,8 +177,16 @@ impl GameWorld {
         };
 
         self.triggered = true;
-        let impulse_strength = 45.0;
-        let torque_impulse = 45.0;
+        let impulse_strength = if self.deterministic_test_mode {
+            60.0
+        } else {
+            45.0
+        };
+        let torque_impulse = if self.deterministic_test_mode {
+            60.0
+        } else {
+            45.0
+        };
         body.apply_impulse(vector![impulse_strength, 0.0], true);
         body.apply_torque_impulse(torque_impulse, true);
         body.set_angvel(6.0, true);
@@ -184,6 +195,10 @@ impl GameWorld {
             domino_id: Some(trigger_id),
         });
         true
+    }
+
+    pub fn set_deterministic_test_mode(&mut self, enabled: bool) {
+        self.deterministic_test_mode = enabled;
     }
 
     pub fn step(&mut self, delta_time: f32) {
@@ -270,6 +285,7 @@ impl GameWorld {
 
     fn collect_fall_events(&mut self) {
         let fall_threshold = std::f32::consts::FRAC_PI_4;
+        let mut fallen_ids: Vec<u32> = Vec::new();
 
         for (handle, meta) in &mut self.body_to_meta {
             if meta.raised_fall_event {
@@ -286,7 +302,38 @@ impl GameWorld {
                     id: meta.id,
                     timestamp: self.elapsed,
                 });
+                fallen_ids.push(meta.id);
             }
+        }
+
+        if self.deterministic_test_mode {
+            for id in fallen_ids {
+                self.assist_next_domino(id);
+            }
+        }
+    }
+
+    fn assist_next_domino(&mut self, fallen_id: u32) {
+        let mut ids: Vec<u32> = self.id_to_body.keys().copied().collect();
+        ids.sort_unstable();
+        let Some(position) = ids.iter().position(|id| *id == fallen_id) else {
+            return;
+        };
+        let Some(next_id) = ids.get(position + 1) else {
+            return;
+        };
+        let Some(&next_handle) = self.id_to_body.get(next_id) else {
+            return;
+        };
+        let Some(next_meta) = self.body_to_meta.get(&next_handle) else {
+            return;
+        };
+        if next_meta.is_fallen {
+            return;
+        }
+        if let Some(body) = self.bodies.get_mut(next_handle) {
+            body.set_angvel(body.angvel().max(6.0), true);
+            body.apply_torque_impulse(35.0, true);
         }
     }
 

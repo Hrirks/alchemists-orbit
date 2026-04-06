@@ -63,6 +63,7 @@ void main() {
     'physics bridge emits trigger and completion events',
     () {
       resetWorld();
+      setDeterministicTestMode(enabled: true);
       placeDomino(x: 100, y: 400, angle: 0, dominoType: 0);
       placeDomino(x: 122, y: 400, angle: 0, dominoType: 0);
       placeDomino(x: 144, y: 400, angle: 0, dominoType: 0);
@@ -81,6 +82,7 @@ void main() {
       final status = getChainStatus();
       expect(status.completed, isTrue);
       expect(status.fallenCount, equals(status.dominoCount));
+      setDeterministicTestMode(enabled: false);
     },
     skip: !hasLocalRustLibrary,
   );

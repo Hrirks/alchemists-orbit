@@ -170,6 +170,13 @@ pub fn reset_world() {
 }
 
 #[frb(sync)]
+pub fn set_deterministic_test_mode(enabled: bool) {
+    WORLD.with(|world| {
+        world.borrow_mut().set_deterministic_test_mode(enabled);
+    });
+}
+
+#[frb(sync)]
 pub fn place_domino(x: f32, y: f32, angle: f32, domino_type: u8) -> u32 {
     WORLD.with(|world| {
         let mut world = world.borrow_mut();

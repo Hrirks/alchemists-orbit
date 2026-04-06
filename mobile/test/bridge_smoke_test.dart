@@ -63,14 +63,14 @@ void main() {
     'physics bridge emits trigger and completion events',
     () {
       resetWorld();
-      placeDomino(x: 100, y: 200, angle: 0, dominoType: 0);
-      placeDomino(x: 140, y: 200, angle: 0, dominoType: 0);
-      placeDomino(x: 180, y: 200, angle: 0, dominoType: 0);
+      placeDomino(x: 100, y: 400, angle: 0, dominoType: 0);
+      placeDomino(x: 122, y: 400, angle: 0, dominoType: 0);
+      placeDomino(x: 144, y: 400, angle: 0, dominoType: 0);
 
       final triggered = triggerDominoPush();
       expect(triggered, isTrue);
 
-      stepMultiple(steps: 240, deltaTime: 1 / 60);
+      stepMultiple(steps: 1200, deltaTime: 1 / 120);
 
       final events = getEvents();
       final kinds = events.map((event) => event.kind).toList();

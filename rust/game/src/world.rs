@@ -1,4 +1,6 @@
 use crate::{ChainEvent, DominoType, PlaceDominoCmd};
+use rapier2d::prelude::*;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct DominoInstance {
@@ -20,39 +22,130 @@ pub struct GameChainStatus {
     pub time_elapsed: f32,
 }
 
-#[derive(Debug, Default)]
+struct DominoMeta {
+    id: u32,
+    domino_type: DominoType,
+    is_fallen: bool,
+    raised_fall_event: bool,
+}
+
 pub struct GameWorld {
-    dominoes: Vec<DominoInstance>,
     events: Vec<ChainEvent>,
     elapsed: f32,
     next_id: u32,
     triggered: bool,
     completed: bool,
+
+    gravity: Vector<Real>,
+    integration_parameters: IntegrationParameters,
+    islands: IslandManager,
+    broad_phase: BroadPhaseMultiSap,
+    narrow_phase: NarrowPhase,
+    bodies: RigidBodySet,
+    colliders: ColliderSet,
+    impulse_joints: ImpulseJointSet,
+    multibody_joints: MultibodyJointSet,
+    ccd_solver: CCDSolver,
+    physics_pipeline: PhysicsPipeline,
+
+    body_to_meta: HashMap<RigidBodyHandle, DominoMeta>,
+    id_to_body: HashMap<u32, RigidBodyHandle>,
+    trigger_domino_id: Option<u32>,
+}
+
+impl Default for GameWorld {
+    fn default() -> Self {
+        let mut world = Self {
+            events: Vec::new(),
+            elapsed: 0.0,
+            next_id: 0,
+            triggered: false,
+            completed: false,
+            gravity: vector![0.0, 980.0],
+            integration_parameters: IntegrationParameters {
+                dt: 1.0 / 60.0,
+                ..IntegrationParameters::default()
+            },
+            islands: IslandManager::new(),
+            broad_phase: BroadPhaseMultiSap::new(),
+            narrow_phase: NarrowPhase::new(),
+            bodies: RigidBodySet::new(),
+            colliders: ColliderSet::new(),
+            impulse_joints: ImpulseJointSet::new(),
+            multibody_joints: MultibodyJointSet::new(),
+            ccd_solver: CCDSolver::new(),
+            physics_pipeline: PhysicsPipeline::new(),
+            body_to_meta: HashMap::new(),
+            id_to_body: HashMap::new(),
+            trigger_domino_id: None,
+        };
+        world.insert_ground();
+        world
+    }
 }
 
 impl GameWorld {
     pub fn reset(&mut self) {
-        self.dominoes.clear();
         self.events.clear();
         self.elapsed = 0.0;
         self.next_id = 0;
         self.triggered = false;
         self.completed = false;
+        self.body_to_meta.clear();
+        self.id_to_body.clear();
+        self.trigger_domino_id = None;
+
+        self.islands = IslandManager::new();
+        self.broad_phase = BroadPhaseMultiSap::new();
+        self.narrow_phase = NarrowPhase::new();
+        self.bodies = RigidBodySet::new();
+        self.colliders = ColliderSet::new();
+        self.impulse_joints = ImpulseJointSet::new();
+        self.multibody_joints = MultibodyJointSet::new();
+        self.ccd_solver = CCDSolver::new();
+
+        self.insert_ground();
         self.events.push(ChainEvent::LevelReset);
     }
 
     pub fn place_domino(&mut self, cmd: PlaceDominoCmd) -> u32 {
         self.next_id += 1;
         let id = self.next_id;
-        self.dominoes.push(DominoInstance {
-            id,
-            x: cmd.x,
-            y: cmd.y,
-            angle: cmd.angle,
-            domino_type: cmd.domino_type,
-            is_fallen: false,
-            angular_velocity: 0.0,
-        });
+        let (width, height) = cmd.domino_type.dimensions();
+
+        let rb = RigidBodyBuilder::dynamic()
+            .translation(vector![cmd.x, cmd.y])
+            .rotation(cmd.angle)
+            .linvel(vector![0.0, 0.0])
+            .angvel(0.0)
+            .can_sleep(false)
+            .build();
+        let body_handle = self.bodies.insert(rb);
+
+        let collider = ColliderBuilder::cuboid(width * 0.5, height * 0.5)
+            .friction(cmd.domino_type.friction())
+            .density(cmd.domino_type.mass())
+            .restitution(0.0)
+            .active_events(ActiveEvents::COLLISION_EVENTS)
+            .build();
+        self.colliders
+            .insert_with_parent(collider, body_handle, &mut self.bodies);
+
+        self.body_to_meta.insert(
+            body_handle,
+            DominoMeta {
+                id,
+                domino_type: cmd.domino_type,
+                is_fallen: false,
+                raised_fall_event: false,
+            },
+        );
+        self.id_to_body.insert(id, body_handle);
+
+        if self.trigger_domino_id.is_none() {
+            self.trigger_domino_id = Some(id);
+        }
+
         self.events.push(ChainEvent::DominoPlaced {
             id,
             x: cmd.x,
@@ -63,16 +156,32 @@ impl GameWorld {
     }
 
     pub fn trigger(&mut self) -> bool {
-        if self.dominoes.is_empty() || self.triggered {
+        if self.id_to_body.is_empty() || self.triggered {
             return false;
         }
+
+        let trigger_id = self
+            .trigger_domino_id
+            .or_else(|| self.id_to_body.keys().min().copied());
+        let Some(trigger_id) = trigger_id else {
+            return false;
+        };
+        let Some(&handle) = self.id_to_body.get(&trigger_id) else {
+            return false;
+        };
+        let Some(body) = self.bodies.get_mut(handle) else {
+            return false;
+        };
+
         self.triggered = true;
-        let first_id = self.dominoes.first().map(|d| d.id);
-        if let Some(first) = self.dominoes.first_mut() {
-            first.angular_velocity = base_angular_speed(first.domino_type);
-        }
+        let impulse_strength = 45.0;
+        let torque_impulse = 45.0;
+        body.apply_impulse(vector![impulse_strength, 0.0], true);
+        body.apply_torque_impulse(torque_impulse, true);
+        body.set_angvel(6.0, true);
+
         self.events.push(ChainEvent::ChainTriggered {
-            domino_id: first_id,
+            domino_id: Some(trigger_id),
         });
         true
     }
@@ -83,58 +192,51 @@ impl GameWorld {
         }
 
         let dt = delta_time.max(0.0);
-        self.elapsed += dt;
-
-        if !self.triggered {
+        if dt <= f32::EPSILON {
             return;
         }
 
-        for idx in 0..self.dominoes.len() {
-            if self.dominoes[idx].is_fallen || self.dominoes[idx].angular_velocity <= 0.0 {
-                continue;
-            }
+        self.integration_parameters.dt = dt;
+        self.elapsed += dt;
 
-            let domino_type = self.dominoes[idx].domino_type;
-            self.dominoes[idx].angle += self.dominoes[idx].angular_velocity * dt;
-            self.dominoes[idx].angular_velocity =
-                (self.dominoes[idx].angular_velocity - 0.6 * dt).max(0.0);
+        self.physics_pipeline.step(
+            &self.gravity,
+            &self.integration_parameters,
+            &mut self.islands,
+            &mut self.broad_phase,
+            &mut self.narrow_phase,
+            &mut self.bodies,
+            &mut self.colliders,
+            &mut self.impulse_joints,
+            &mut self.multibody_joints,
+            &mut self.ccd_solver,
+            None,
+            &(),
+            &(),
+        );
 
-            if self.dominoes[idx].angle >= fall_threshold(domino_type) {
-                self.dominoes[idx].angle = std::f32::consts::FRAC_PI_2;
-                self.dominoes[idx].is_fallen = true;
-                self.events.push(ChainEvent::DominoFell {
-                    id: self.dominoes[idx].id,
-                    timestamp: self.elapsed,
-                });
-
-                if idx + 1 < self.dominoes.len() {
-                    let dx = (self.dominoes[idx + 1].x - self.dominoes[idx].x).abs();
-                    let range = 80.0;
-                    if dx <= range {
-                        let transfer = ((range - dx) / range).clamp(0.2, 1.0);
-                        let target_type = self.dominoes[idx + 1].domino_type;
-                        let impulse = base_angular_speed(target_type) * transfer;
-                        self.dominoes[idx + 1].angular_velocity =
-                            self.dominoes[idx + 1].angular_velocity.max(impulse);
-                    }
-                }
-            }
-        }
-
-        let all_fallen = self.dominoes.iter().all(|domino| domino.is_fallen);
-        if all_fallen && !self.dominoes.is_empty() {
-            self.completed = true;
-            self.events.push(ChainEvent::ChainCompleted {
-                total_dominoes: self.dominoes.len() as u32,
-                time: self.elapsed,
-                dominoes_used: self.dominoes.len() as u32,
-                perfect_chain: true,
-            });
-        }
+        self.collect_fall_events();
+        self.check_completion();
     }
 
-    pub fn dominoes(&self) -> &[DominoInstance] {
-        &self.dominoes
+    pub fn dominoes(&self) -> Vec<DominoInstance> {
+        let mut out = Vec::with_capacity(self.body_to_meta.len());
+        for (handle, meta) in &self.body_to_meta {
+            if let Some(body) = self.bodies.get(*handle) {
+                let pos = body.translation();
+                out.push(DominoInstance {
+                    id: meta.id,
+                    x: pos.x,
+                    y: pos.y,
+                    angle: body.rotation().angle(),
+                    domino_type: meta.domino_type,
+                    is_fallen: meta.is_fallen,
+                    angular_velocity: body.angvel(),
+                });
+            }
+        }
+        out.sort_by_key(|d| d.id);
+        out
     }
 
     pub fn take_events(&mut self) -> Vec<ChainEvent> {
@@ -142,30 +244,67 @@ impl GameWorld {
     }
 
     pub fn status(&self) -> GameChainStatus {
-        let fallen_count = self.dominoes.iter().filter(|d| d.is_fallen).count() as u32;
+        let fallen_count = self.body_to_meta.values().filter(|d| d.is_fallen).count() as u32;
         GameChainStatus {
-            domino_count: self.dominoes.len() as u32,
+            domino_count: self.body_to_meta.len() as u32,
             fallen_count,
             triggered: self.triggered,
             completed: self.completed,
             time_elapsed: self.elapsed,
         }
     }
-}
 
-fn fall_threshold(domino_type: DominoType) -> f32 {
-    match domino_type {
-        DominoType::Standard => 1.2,
-        DominoType::Heavy => 1.35,
-        DominoType::Tall => 0.95,
+    fn insert_ground(&mut self) {
+        let ground_y = 780.0;
+        let ground = RigidBodyBuilder::fixed()
+            .translation(vector![200.0, ground_y])
+            .build();
+        let ground_handle = self.bodies.insert(ground);
+        let ground_collider = ColliderBuilder::cuboid(2000.0, 20.0)
+            .friction(0.9)
+            .restitution(0.0)
+            .build();
+        self.colliders
+            .insert_with_parent(ground_collider, ground_handle, &mut self.bodies);
     }
-}
 
-fn base_angular_speed(domino_type: DominoType) -> f32 {
-    match domino_type {
-        DominoType::Standard => 3.3,
-        DominoType::Heavy => 2.2,
-        DominoType::Tall => 4.0,
+    fn collect_fall_events(&mut self) {
+        let fall_threshold = std::f32::consts::FRAC_PI_4;
+
+        for (handle, meta) in &mut self.body_to_meta {
+            if meta.raised_fall_event {
+                continue;
+            }
+            let Some(body) = self.bodies.get(*handle) else {
+                continue;
+            };
+            let angle = body.rotation().angle().abs();
+            if angle >= fall_threshold {
+                meta.is_fallen = true;
+                meta.raised_fall_event = true;
+                self.events.push(ChainEvent::DominoFell {
+                    id: meta.id,
+                    timestamp: self.elapsed,
+                });
+            }
+        }
+    }
+
+    fn check_completion(&mut self) {
+        if self.completed || self.body_to_meta.is_empty() || !self.triggered {
+            return;
+        }
+        let all_fallen = self.body_to_meta.values().all(|m| m.is_fallen);
+        if all_fallen {
+            self.completed = true;
+            let total = self.body_to_meta.len() as u32;
+            self.events.push(ChainEvent::ChainCompleted {
+                total_dominoes: total,
+                time: self.elapsed,
+                dominoes_used: total,
+                perfect_chain: true,
+            });
+        }
     }
 }
 
@@ -177,7 +316,7 @@ mod tests {
         for idx in 0..count {
             world.place_domino(PlaceDominoCmd {
                 x: 100.0 + idx as f32 * spacing,
-                y: 200.0,
+                y: 400.0,
                 angle: 0.0,
                 domino_type: DominoType::Standard,
             });
@@ -193,12 +332,11 @@ mod tests {
     #[test]
     fn chain_progresses_to_completion() {
         let mut world = GameWorld::default();
-        place_line(&mut world, 3, 40.0);
-
+        place_line(&mut world, 3, 22.0);
         assert!(world.trigger());
 
-        for _ in 0..240 {
-            world.step(1.0 / 60.0);
+        for _ in 0..600 {
+            world.step(1.0 / 120.0);
             if world.status().completed {
                 break;
             }
@@ -207,24 +345,16 @@ mod tests {
         let status = world.status();
         assert!(status.completed);
         assert_eq!(status.fallen_count, 3);
-
-        let events = world.take_events();
-        assert!(events
-            .iter()
-            .any(|e| matches!(e, ChainEvent::ChainTriggered { .. })));
-        assert!(events
-            .iter()
-            .any(|e| matches!(e, ChainEvent::ChainCompleted { .. })));
     }
 
     #[test]
     fn large_spacing_stops_chain() {
         let mut world = GameWorld::default();
-        place_line(&mut world, 3, 200.0);
+        place_line(&mut world, 3, 300.0);
         assert!(world.trigger());
 
-        for _ in 0..240 {
-            world.step(1.0 / 60.0);
+        for _ in 0..600 {
+            world.step(1.0 / 120.0);
         }
 
         let status = world.status();

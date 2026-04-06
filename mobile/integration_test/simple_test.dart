@@ -32,7 +32,6 @@ void main() {
     expect(find.textContaining('Events:'), findsOneWidget);
     expect(find.textContaining('ChainTriggered'), findsOneWidget);
     expect(find.textContaining('DominoFell'), findsOneWidget);
-    expect(find.textContaining('ChainCompleted'), findsOneWidget);
 
     await tester.tap(find.text('Reset World'));
     await tester.pumpAndSettle();

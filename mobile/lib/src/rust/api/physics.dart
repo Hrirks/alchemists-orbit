@@ -14,6 +14,12 @@ void resetWorld() => RustLib.instance.api.crateApiPhysicsResetWorld();
 void setDeterministicTestMode({required bool enabled}) => RustLib.instance.api
     .crateApiPhysicsSetDeterministicTestMode(enabled: enabled);
 
+void configureLevel({int? maxDominoes, double? timeLimitSeconds}) =>
+    RustLib.instance.api.crateApiPhysicsConfigureLevel(
+      maxDominoes: maxDominoes,
+      timeLimitSeconds: timeLimitSeconds,
+    );
+
 int placeDomino({
   required double x,
   required double y,

@@ -35,6 +35,12 @@ pub struct GameWorld {
     next_id: u32,
     triggered: bool,
     completed: bool,
+    failed: bool,
+    failure_reason: Option<crate::FailureReason>,
+    max_dominoes: Option<u32>,
+    time_limit_seconds: Option<f32>,
+    chain_start_time: Option<f32>,
+    last_progress_time: Option<f32>,
     deterministic_test_mode: bool,
 
     gravity: Vector<Real>,
@@ -62,6 +68,12 @@ impl Default for GameWorld {
             next_id: 0,
             triggered: false,
             completed: false,
+            failed: false,
+            failure_reason: None,
+            max_dominoes: None,
+            time_limit_seconds: None,
+            chain_start_time: None,
+            last_progress_time: None,
             deterministic_test_mode: false,
             gravity: vector![0.0, 980.0],
             integration_parameters: IntegrationParameters {
@@ -93,6 +105,10 @@ impl GameWorld {
         self.next_id = 0;
         self.triggered = false;
         self.completed = false;
+        self.failed = false;
+        self.failure_reason = None;
+        self.chain_start_time = None;
+        self.last_progress_time = None;
         self.body_to_meta.clear();
         self.id_to_body.clear();
         self.trigger_domino_id = None;
@@ -110,7 +126,27 @@ impl GameWorld {
         self.events.push(ChainEvent::LevelReset);
     }
 
+    pub fn set_level_constraints(
+        &mut self,
+        max_dominoes: Option<u32>,
+        time_limit_seconds: Option<f32>,
+    ) {
+        self.max_dominoes = max_dominoes;
+        self.time_limit_seconds = time_limit_seconds;
+    }
+
     pub fn place_domino(&mut self, cmd: PlaceDominoCmd) -> u32 {
+        if let Some(max_dominoes) = self.max_dominoes {
+            if self.body_to_meta.len() as u32 >= max_dominoes {
+                self.failed = true;
+                self.failure_reason = Some(crate::FailureReason::TooManyDominoes);
+                self.events.push(ChainEvent::LevelFailed {
+                    reason: crate::FailureReason::TooManyDominoes,
+                });
+                return 0;
+            }
+        }
+
         self.next_id += 1;
         let id = self.next_id;
         let (width, height) = cmd.domino_type.dimensions();
@@ -176,6 +212,8 @@ impl GameWorld {
         };
 
         self.triggered = true;
+        self.chain_start_time = Some(self.elapsed);
+        self.last_progress_time = Some(self.elapsed);
         let impulse_strength = if self.deterministic_test_mode {
             60.0
         } else {
@@ -201,7 +239,7 @@ impl GameWorld {
     }
 
     pub fn step(&mut self, delta_time: f32) {
-        if self.completed {
+        if self.completed || self.failed {
             return;
         }
 
@@ -231,6 +269,7 @@ impl GameWorld {
 
         self.collect_fall_events();
         self.check_completion();
+        self.check_failure_conditions();
     }
 
     pub fn dominoes(&self) -> Vec<DominoInstance> {
@@ -301,6 +340,7 @@ impl GameWorld {
                     id: meta.id,
                     timestamp: self.elapsed,
                 });
+                self.last_progress_time = Some(self.elapsed);
                 fallen_ids.push(meta.id);
             }
         }
@@ -350,6 +390,39 @@ impl GameWorld {
                 dominoes_used: total,
                 perfect_chain: true,
             });
+        }
+    }
+
+    fn check_failure_conditions(&mut self) {
+        if !self.triggered || self.completed || self.failed {
+            return;
+        }
+
+        if let (Some(start), Some(limit)) = (self.chain_start_time, self.time_limit_seconds) {
+            if self.elapsed - start > limit {
+                self.failed = true;
+                self.failure_reason = Some(crate::FailureReason::Timeout);
+                self.events.push(ChainEvent::LevelFailed {
+                    reason: crate::FailureReason::Timeout,
+                });
+                return;
+            }
+        }
+
+        let fallen_count = self.body_to_meta.values().filter(|d| d.is_fallen).count() as u32;
+        let domino_count = self.body_to_meta.len() as u32;
+        if domino_count == 0 || fallen_count == domino_count {
+            return;
+        }
+
+        if let Some(last_progress) = self.last_progress_time {
+            if self.elapsed - last_progress > 5.0 {
+                self.failed = true;
+                self.failure_reason = Some(crate::FailureReason::StuckChain);
+                self.events.push(ChainEvent::LevelFailed {
+                    reason: crate::FailureReason::StuckChain,
+                });
+            }
         }
     }
 }
@@ -407,5 +480,60 @@ mod tests {
         assert!(!status.completed);
         assert!(status.fallen_count >= 1);
         assert!(status.fallen_count < 3);
+    }
+
+    #[test]
+    fn too_many_dominoes_triggers_failure_event() {
+        let mut world = GameWorld::default();
+        world.set_level_constraints(Some(1), None);
+
+        let first = world.place_domino(PlaceDominoCmd {
+            x: 100.0,
+            y: 400.0,
+            angle: 0.0,
+            domino_type: DominoType::Standard,
+        });
+        let second = world.place_domino(PlaceDominoCmd {
+            x: 122.0,
+            y: 400.0,
+            angle: 0.0,
+            domino_type: DominoType::Standard,
+        });
+
+        assert!(first > 0);
+        assert_eq!(second, 0);
+
+        let events = world.take_events();
+        assert!(events.iter().any(|e| matches!(
+            e,
+            ChainEvent::LevelFailed {
+                reason: crate::FailureReason::TooManyDominoes
+            }
+        )));
+    }
+
+    #[test]
+    fn time_limit_triggers_timeout_failure() {
+        let mut world = GameWorld::default();
+        world.set_level_constraints(None, Some(0.01));
+        world.set_deterministic_test_mode(true);
+        world.place_domino(PlaceDominoCmd {
+            x: 100.0,
+            y: 400.0,
+            angle: 0.0,
+            domino_type: DominoType::Standard,
+        });
+        assert!(world.trigger());
+
+        world.step(1.0 / 60.0);
+        let events = world.take_events();
+        assert!(events.iter().any(|e| {
+            matches!(
+                e,
+                ChainEvent::LevelFailed {
+                    reason: crate::FailureReason::Timeout
+                }
+            )
+        }));
     }
 }

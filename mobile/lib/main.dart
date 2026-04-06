@@ -57,6 +57,8 @@ class _GameScreenState extends State<GameScreen>
   final List<String> _eventLog = <String>[];
   (double, double) _currentDimensions = (8.0, 24.0);
   String _statusText = 'Tap the field to place a domino in Rust world.';
+  final int _maxDominoes = 12;
+  final double _timeLimitSeconds = 20;
   Timer? _loopTimer;
   bool _bridgeReady = false;
 
@@ -74,6 +76,10 @@ class _GameScreenState extends State<GameScreen>
         _dimensionsByType[type] = (dimensions.$1, dimensions.$2);
       }
       _bridgeReady = true;
+      configureLevel(
+        maxDominoes: _maxDominoes,
+        timeLimitSeconds: _timeLimitSeconds,
+      );
       _refreshDimensions();
       _pollWorld();
       _loopTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
@@ -122,6 +128,12 @@ class _GameScreenState extends State<GameScreen>
           if (event.kind == 'ChainCompleted') {
             _statusText =
                 'Chain completed in ${chainStatus.timeElapsed.toStringAsFixed(2)}s';
+          } else if (event.kind == 'LevelFailedTimeout') {
+            _statusText = 'Level failed: timeout';
+          } else if (event.kind == 'LevelFailedStuckChain') {
+            _statusText = 'Level failed: chain got stuck';
+          } else if (event.kind == 'LevelFailedTooManyDominoes') {
+            _statusText = 'Level failed: domino limit exceeded';
           } else if (event.kind == 'DominoFell') {
             _statusText =
                 'Domino ${event.dominoId ?? '-'} fell at ${event.timestamp?.toStringAsFixed(2) ?? '?'}s';
@@ -219,6 +231,11 @@ class _GameScreenState extends State<GameScreen>
                   const SizedBox(height: 8),
                   Text(
                     'Dominoes: ${_status?.dominoCount ?? 0} | Fallen: ${_status?.fallenCount ?? 0} | Time: ${(_status?.timeElapsed ?? 0).toStringAsFixed(2)}s',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Limits: max $_maxDominoes dominoes, ${_timeLimitSeconds.toStringAsFixed(0)}s',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 4),

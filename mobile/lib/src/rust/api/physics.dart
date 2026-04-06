@@ -6,7 +6,7 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `base_angular_speed`, `domino_type_to_u8`, `fall_threshold`, `normalize_domino_type`
+// These functions are ignored because they are not marked as `pub`: `domino_type_to_u8`, `map_event`, `normalize_domino_type`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 void resetWorld() => RustLib.instance.api.crateApiPhysicsResetWorld();

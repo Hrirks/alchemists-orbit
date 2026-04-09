@@ -1,5 +1,5 @@
 [workspace]
-members = ["native", "api"]
+members = ["game"]
 resolver = "2"
 
 [workspace.package]

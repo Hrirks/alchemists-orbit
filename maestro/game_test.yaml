@@ -1,8 +1,9 @@
 appId: com.example.mobile
 ---
 - launchApp
-- assertVisible: "Game Stack"
-- extendedWaitUntil:
-    visible: "status: active"
-    timeout: 8000
-- assertVisible: "Character"
+- assertVisible: "FRB Bridge Smoke Test"
+- assertVisible: "Trigger"
+- assertVisible: "Reset World"
+- tapOn: "Trigger"
+- tapOn: "Reset World"
+- assertVisible: "Trigger"

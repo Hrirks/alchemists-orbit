@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 import 'package:alchemists_orbit/src/rust/frb_generated.dart';
+import 'package:alchemists_orbit/src/rust/api/physics.dart';
 import 'package:alchemists_orbit/src/rust/api/simple.dart';
 
 void main() async {
@@ -47,77 +49,167 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin {
-  int _score = 0;
-  int _level = 1;
-  bool _gameStarted = false;
-  late AnimationController _animationController;
-  late GameApi _gameApi;
-  DateTime? _lastPhysicsUpdate;
+  int _selectedType = 0;
+  final Map<int, (double, double)> _dimensionsByType =
+      <int, (double, double)>{};
+  List<DominoTransform> _dominoes = <DominoTransform>[];
+  ChainStatus? _status;
+  final List<String> _eventLog = <String>[];
+  (double, double) _currentDimensions = (8.0, 24.0);
+  String _statusText = 'Tap the field to place a domino in Rust world.';
+  final int _maxDominoes = 12;
+  final double _timeLimitSeconds = 20;
+  final String _defaultLevelJson = '''
+{
+  "level_id": 1,
+  "name": "Bridge Demo",
+  "max_dominoes": 12,
+  "time_limit": 20.0,
+  "obstacles": [],
+  "starting_dominoes": [
+    {"x": 80.0, "y": 420.0, "angle": 0.0, "domino_type": "Standard", "is_trigger": true}
+  ],
+  "star_thresholds": {"time_3_star": 12.0, "dominoes_3_star": 6}
+}
+''';
+  String _levelName = 'Sandbox';
+  Timer? _loopTimer;
+  bool _bridgeReady = false;
 
   @override
   void initState() {
     super.initState();
-
-    // Initialize GameApi
-    _gameApi = GameApi();
-
-    // Initialize animation controller for physics updates
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(hours: 1), // Infinite loop
-    );
-
-    _animationController.addListener(_updatePhysics);
+    _initializeBridge();
   }
 
-  void _updatePhysics() {
-    // Calculate delta time
-    final now = DateTime.now();
-    if (_lastPhysicsUpdate != null) {
-      final deltaTime =
-          now.difference(_lastPhysicsUpdate!).inMicroseconds / 1000000.0;
-
-      // Step physics (target 60 FPS, delta ~0.016s)
-      try {
-        _gameApi.stepPhysics(deltaTime: deltaTime);
-      } catch (e) {
-        debugPrint('Physics step error: $e');
-      }
-    }
-    _lastPhysicsUpdate = now;
-  }
-
-  void _startGame() {
-    setState(() {
-      _gameStarted = true;
-      _score = 0;
-      _level = 1;
-    });
-
-    // Start physics update loop
-    _animationController.repeat();
-  }
-
-  void _dropOrb(Offset position) {
-    // Call Rust API to drop orb (tier 1 for now)
+  void _initializeBridge() {
     try {
-      _gameApi.dropOrb(x: position.dx, y: position.dy, tier: 1);
-      debugPrint('Dropped orb at (${position.dx}, ${position.dy})');
+      resetWorld();
+      for (final type in <int>[0, 1, 2]) {
+        final dimensions = getDominoDimensions(dominoType: type);
+        _dimensionsByType[type] = (dimensions.$1, dimensions.$2);
+      }
+      _bridgeReady = true;
+      if (!loadLevelJson(levelJson: _defaultLevelJson)) {
+        configureLevel(
+          maxDominoes: _maxDominoes,
+          timeLimitSeconds: _timeLimitSeconds,
+        );
+      }
+      _levelName = currentLevelName() ?? _levelName;
+      _refreshDimensions();
+      _pollWorld();
+      _loopTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+        if (!_bridgeReady) {
+          return;
+        }
+        step(deltaTime: 1 / 60);
+        _pollWorld();
+      });
+    } catch (_) {
+      setState(() {
+        _statusText =
+            'Bridge not initialized yet. Launch with `main()` to enable Rust calls.';
+      });
+    }
+  }
+
+  void _refreshDimensions() {
+    final dimensions =
+        _dimensionsByType[_selectedType] ??
+        (_currentDimensions.$1, _currentDimensions.$2);
+    setState(() {
+      _currentDimensions = dimensions;
+      _statusText =
+          'Domino type $_selectedType selected (${dimensions.$1.toStringAsFixed(1)} x ${dimensions.$2.toStringAsFixed(1)}).';
+    });
+  }
+
+  void _pollWorld() {
+    try {
+      final transforms = getDominoTransforms();
+      final events = getEvents();
+      final chainStatus = getChainStatus();
+      setState(() {
+        _dominoes = transforms;
+        _status = chainStatus;
+        if (events.isNotEmpty) {
+          for (final event in events) {
+            _eventLog.add(event.kind);
+          }
+          if (_eventLog.length > 10) {
+            _eventLog.removeRange(0, _eventLog.length - 10);
+          }
+
+          final event = events.last;
+          if (event.kind == 'ChainCompleted') {
+            _statusText =
+                'Chain completed in ${chainStatus.timeElapsed.toStringAsFixed(2)}s';
+          } else if (event.kind == 'LevelFailedTimeout') {
+            _statusText = 'Level failed: timeout';
+          } else if (event.kind == 'LevelFailedStuckChain') {
+            _statusText = 'Level failed: chain got stuck';
+          } else if (event.kind == 'LevelFailedTooManyDominoes') {
+            _statusText = 'Level failed: domino limit exceeded';
+          } else if (event.kind == 'DominoFell') {
+            _statusText =
+                'Domino ${event.dominoId ?? '-'} fell at ${event.timestamp?.toStringAsFixed(2) ?? '?'}s';
+          } else if (event.kind == 'ChainTriggered') {
+            _statusText = 'Chain triggered';
+          } else if (event.kind == 'DominoPlaced') {
+            _statusText = 'Placed domino #${event.dominoId ?? '-'}';
+          }
+        }
+      });
+    } catch (_) {
+      _bridgeReady = false;
+    }
+  }
+
+  void _placeDomino(Offset position) {
+    if (!_bridgeReady) {
+      return;
+    }
+    try {
+      placeDomino(
+        x: position.dx,
+        y: position.dy,
+        angle: 0,
+        dominoType: _selectedType,
+      );
+      _pollWorld();
     } catch (e) {
-      debugPrint('Drop orb error: $e');
+      setState(() {
+        _statusText = 'Bridge call failed: $e';
+      });
     }
-
-    if (!_gameStarted) {
-      _startGame();
-    }
-
-    // Trigger haptic feedback
     HapticFeedback.mediumImpact();
+  }
+
+  void _triggerChain() {
+    if (!_bridgeReady) {
+      return;
+    }
+    final triggered = triggerDominoPush();
+    setState(() {
+      _statusText = triggered
+          ? 'Chain trigger requested.'
+          : 'No trigger available.';
+    });
+    _pollWorld();
+  }
+
+  void _resetWorldState() {
+    if (!_bridgeReady) {
+      return;
+    }
+    resetWorld();
+    _pollWorld();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _loopTimer?.cancel();
     super.dispose();
   }
 
@@ -127,91 +219,129 @@ class _GameScreenState extends State<GameScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // HUD
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.purple.withOpacity(0.3), Colors.transparent],
+                  colors: [
+                    Colors.purple.withValues(alpha: 0.3),
+                    Colors.transparent,
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Score',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      Text(
-                        '$_score',
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                  Text(
+                    'FRB Bridge Smoke Test',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  const SizedBox(height: 8),
+                  Text(
+                    'Level: $_levelName',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _statusText,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Dominoes: ${_status?.dominoCount ?? 0} | Fallen: ${_status?.fallenCount ?? 0} | Time: ${(_status?.timeElapsed ?? 0).toStringAsFixed(2)}s',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Limits: max $_maxDominoes dominoes, ${_timeLimitSeconds.toStringAsFixed(0)}s',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Events: ${_eventLog.isEmpty ? '-' : _eventLog.join(' > ')}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
                     children: [
-                      Text(
-                        'Level',
-                        style: Theme.of(context).textTheme.bodySmall,
+                      ChoiceChip(
+                        label: const Text('Standard'),
+                        selected: _selectedType == 0,
+                        onSelected: (_) {
+                          _selectedType = 0;
+                          _refreshDimensions();
+                        },
                       ),
-                      Text(
-                        '$_level',
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ChoiceChip(
+                        label: const Text('Heavy'),
+                        selected: _selectedType == 1,
+                        onSelected: (_) {
+                          _selectedType = 1;
+                          _refreshDimensions();
+                        },
+                      ),
+                      ChoiceChip(
+                        label: const Text('Tall'),
+                        selected: _selectedType == 2,
+                        onSelected: (_) {
+                          _selectedType = 2;
+                          _refreshDimensions();
+                        },
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-
-            // Game Area
             Expanded(
               child: GestureDetector(
+                key: const Key('game_canvas'),
                 onTapDown: (details) {
-                  _dropOrb(details.localPosition);
+                  _placeDomino(details.localPosition);
                 },
                 child: Container(
                   color: Colors.black,
                   child: CustomPaint(
-                    painter: GamePainter(gameStarted: _gameStarted),
+                    painter: GamePainter(
+                      dominoes: _dominoes,
+                      dimensionsByType: _dimensionsByType,
+                    ),
                     child: Center(
-                      child: !_gameStarted
-                          ? Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.bubble_chart,
-                                  size: 64,
-                                  color: Colors.purple.withOpacity(0.5),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Tap to drop orbs',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineSmall
-                                      ?.copyWith(color: Colors.white70),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Match orbs to merge and score!',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(color: Colors.white54),
-                                ),
-                              ],
+                      child: _dominoes.isEmpty
+                          ? Text(
+                              'Tap anywhere to place dominoes',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(color: Colors.white70),
                             )
                           : null,
                     ),
                   ),
                 ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.tonal(
+                      onPressed: _resetWorldState,
+                      child: const Text('Reset World'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _triggerChain,
+                      child: const Text('Trigger'),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -222,38 +352,54 @@ class _GameScreenState extends State<GameScreen>
 }
 
 class GamePainter extends CustomPainter {
-  final bool gameStarted;
+  final List<DominoTransform> dominoes;
+  final Map<int, (double, double)> dimensionsByType;
 
-  GamePainter({required this.gameStarted});
+  GamePainter({required this.dominoes, required this.dimensionsByType});
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (!gameStarted) {
-      // Draw gravity well indicator
-      final center = Offset(size.width / 2, size.height / 2);
-      final paint = Paint()
-        ..color = Colors.purple.withOpacity(0.2)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2;
-
-      // Draw concentric circles
-      for (int i = 1; i <= 3; i++) {
-        canvas.drawCircle(center, i * 50.0, paint);
-      }
-
-      // Draw center dot
-      canvas.drawCircle(
-        center,
-        8,
-        Paint()
-          ..color = Colors.purple.withOpacity(0.5)
-          ..style = PaintingStyle.fill,
-      );
+    final gridPaint = Paint()
+      ..color = Colors.white12
+      ..strokeWidth = 1;
+    for (double y = 0; y < size.height; y += 40) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
-    // TODO: Draw orbs from Rust physics engine
+    final dominoPaint = Paint()
+      ..color = const Color(0xFFFFA726)
+      ..style = PaintingStyle.fill;
+    final strokePaint = Paint()
+      ..color = Colors.white70
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    for (final domino in dominoes) {
+      final dimensions = dimensionsByType[domino.dominoType] ?? (10.0, 50.0);
+      final rect = Rect.fromCenter(
+        center: Offset(domino.x, domino.y),
+        width: dimensions.$1,
+        height: dimensions.$2,
+      );
+      canvas.save();
+      canvas.translate(domino.x, domino.y);
+      canvas.rotate(domino.angle);
+      canvas.translate(-domino.x, -domino.y);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(3)),
+        dominoPaint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(3)),
+        strokePaint,
+      );
+      canvas.restore();
+    }
   }
 
   @override
-  bool shouldRepaint(GamePainter oldDelegate) => true;
+  bool shouldRepaint(GamePainter oldDelegate) {
+    return oldDelegate.dominoes != dominoes ||
+        oldDelegate.dimensionsByType != dimensionsByType;
+  }
 }

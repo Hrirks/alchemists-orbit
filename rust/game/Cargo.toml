@@ -1,0 +1,28 @@
+[package]
+name = "domino-game"
+version = "0.1.0"
+edition = "2021"
+authors = ["Alchemist's Orbit Team"]
+license = "MIT"
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+# Physics engine
+bevy = { version = "0.14", default-features = false, features = ["bevy_asset", "bevy_scene"] }
+bevy_rapier2d = { version = "0.27", features = ["simd-stable", "serde-serialize"] }
+rapier2d = { version = "0.22", features = ["simd-stable", "serde-serialize"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Bridge
+flutter_rust_bridge = "2.11"
+
+# Utilities
+anyhow = "1.0"
+
+[dev-dependencies]
+approx = "0.5"

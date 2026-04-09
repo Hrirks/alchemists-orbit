@@ -14,7 +14,7 @@ void main() {
     await tester.pumpWidget(const AlchemistsOrbitApp());
     await tester.pump();
 
-    expect(find.text('Score'), findsOneWidget);
-    expect(find.text('Level'), findsOneWidget);
+    expect(find.text('FRB Bridge Smoke Test'), findsOneWidget);
+    expect(find.textContaining('Bridge not initialized yet'), findsOneWidget);
   });
 }

@@ -1,4 +1,4 @@
-use crate::{ChainEvent, DominoType, PlaceDominoCmd};
+use crate::{ChainEvent, DominoType, LevelDefinition, PlaceDominoCmd};
 use rapier2d::prelude::*;
 use std::collections::HashMap;
 
@@ -41,6 +41,8 @@ pub struct GameWorld {
     time_limit_seconds: Option<f32>,
     chain_start_time: Option<f32>,
     last_progress_time: Option<f32>,
+    player_placed_count: u32,
+    current_level_name: Option<String>,
     deterministic_test_mode: bool,
 
     gravity: Vector<Real>,
@@ -74,6 +76,8 @@ impl Default for GameWorld {
             time_limit_seconds: None,
             chain_start_time: None,
             last_progress_time: None,
+            player_placed_count: 0,
+            current_level_name: None,
             deterministic_test_mode: false,
             gravity: vector![0.0, 980.0],
             integration_parameters: IntegrationParameters {
@@ -109,6 +113,8 @@ impl GameWorld {
         self.failure_reason = None;
         self.chain_start_time = None;
         self.last_progress_time = None;
+        self.player_placed_count = 0;
+        self.current_level_name = None;
         self.body_to_meta.clear();
         self.id_to_body.clear();
         self.trigger_domino_id = None;
@@ -135,9 +141,58 @@ impl GameWorld {
         self.time_limit_seconds = time_limit_seconds;
     }
 
+    pub fn current_level_name(&self) -> Option<String> {
+        self.current_level_name.clone()
+    }
+
+    pub fn load_level_json(&mut self, level_json: &str) -> bool {
+        match serde_json::from_str::<LevelDefinition>(level_json) {
+            Ok(definition) => self.load_level_definition(definition),
+            Err(_) => false,
+        }
+    }
+
+    pub fn load_level_definition(&mut self, definition: LevelDefinition) -> bool {
+        self.reset();
+        self.current_level_name = Some(definition.name.clone());
+
+        self.set_level_constraints(
+            Some(definition.max_dominoes),
+            if definition.time_limit > 0.0 {
+                Some(definition.time_limit)
+            } else {
+                None
+            },
+        );
+
+        for starting in definition.starting_dominoes {
+            let id = self.place_domino_internal(
+                PlaceDominoCmd {
+                    x: starting.x,
+                    y: starting.y,
+                    angle: starting.angle,
+                    domino_type: starting.domino_type,
+                },
+                false,
+            );
+            if id == 0 {
+                return false;
+            }
+            if starting.is_trigger {
+                self.trigger_domino_id = Some(id);
+            }
+        }
+
+        true
+    }
+
     pub fn place_domino(&mut self, cmd: PlaceDominoCmd) -> u32 {
+        self.place_domino_internal(cmd, true)
+    }
+
+    fn place_domino_internal(&mut self, cmd: PlaceDominoCmd, count_as_player: bool) -> u32 {
         if let Some(max_dominoes) = self.max_dominoes {
-            if self.body_to_meta.len() as u32 >= max_dominoes {
+            if count_as_player && self.player_placed_count >= max_dominoes {
                 self.failed = true;
                 self.failure_reason = Some(crate::FailureReason::TooManyDominoes);
                 self.events.push(ChainEvent::LevelFailed {
@@ -190,6 +245,11 @@ impl GameWorld {
             y: cmd.y,
             angle: cmd.angle,
         });
+
+        if count_as_player {
+            self.player_placed_count += 1;
+        }
+
         id
     }
 
@@ -535,5 +595,50 @@ mod tests {
                 }
             )
         }));
+    }
+
+    #[test]
+    fn load_level_json_applies_constraints_and_starting_dominoes() {
+        let mut world = GameWorld::default();
+        let json = r#"
+        {
+          "level_id": 1,
+          "name": "Starter",
+          "max_dominoes": 2,
+          "time_limit": 10.0,
+          "obstacles": [],
+          "starting_dominoes": [
+            {"x": 100.0, "y": 400.0, "angle": 0.0, "domino_type": "Standard", "is_trigger": true}
+          ],
+          "star_thresholds": {"time_3_star": 8.0, "dominoes_3_star": 1}
+        }
+        "#;
+
+        assert!(world.load_level_json(json));
+        assert_eq!(world.current_level_name(), Some("Starter".to_string()));
+        assert_eq!(world.dominoes().len(), 1);
+
+        let id1 = world.place_domino(PlaceDominoCmd {
+            x: 122.0,
+            y: 400.0,
+            angle: 0.0,
+            domino_type: DominoType::Standard,
+        });
+        let id2 = world.place_domino(PlaceDominoCmd {
+            x: 144.0,
+            y: 400.0,
+            angle: 0.0,
+            domino_type: DominoType::Standard,
+        });
+        let id3 = world.place_domino(PlaceDominoCmd {
+            x: 166.0,
+            y: 400.0,
+            angle: 0.0,
+            domino_type: DominoType::Standard,
+        });
+
+        assert!(id1 > 0);
+        assert!(id2 > 0);
+        assert_eq!(id3, 0);
     }
 }

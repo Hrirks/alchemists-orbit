@@ -186,6 +186,16 @@ pub fn configure_level(max_dominoes: Option<u32>, time_limit_seconds: Option<f32
 }
 
 #[frb(sync)]
+pub fn load_level_json(level_json: String) -> bool {
+    WORLD.with(|world| world.borrow_mut().load_level_json(&level_json))
+}
+
+#[frb(sync)]
+pub fn current_level_name() -> Option<String> {
+    WORLD.with(|world| world.borrow().current_level_name())
+}
+
+#[frb(sync)]
 pub fn place_domino(x: f32, y: f32, angle: f32, domino_type: u8) -> u32 {
     WORLD.with(|world| {
         let mut world = world.borrow_mut();

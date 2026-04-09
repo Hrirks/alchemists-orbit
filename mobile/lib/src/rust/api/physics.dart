@@ -20,6 +20,12 @@ void configureLevel({int? maxDominoes, double? timeLimitSeconds}) =>
       timeLimitSeconds: timeLimitSeconds,
     );
 
+bool loadLevelJson({required String levelJson}) =>
+    RustLib.instance.api.crateApiPhysicsLoadLevelJson(levelJson: levelJson);
+
+String? currentLevelName() =>
+    RustLib.instance.api.crateApiPhysicsCurrentLevelName();
+
 int placeDomino({
   required double x,
   required double y,

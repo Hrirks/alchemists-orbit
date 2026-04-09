@@ -27,7 +27,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('FRB Bridge Smoke Test'), findsOneWidget);
-    expect(find.textContaining('Domino type 0 selected'), findsOneWidget);
+    expect(find.textContaining('Level:'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('game_canvas')));
     await tester.pumpAndSettle();

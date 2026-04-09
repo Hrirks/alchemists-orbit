@@ -59,6 +59,20 @@ class _GameScreenState extends State<GameScreen>
   String _statusText = 'Tap the field to place a domino in Rust world.';
   final int _maxDominoes = 12;
   final double _timeLimitSeconds = 20;
+  final String _defaultLevelJson = '''
+{
+  "level_id": 1,
+  "name": "Bridge Demo",
+  "max_dominoes": 12,
+  "time_limit": 20.0,
+  "obstacles": [],
+  "starting_dominoes": [
+    {"x": 80.0, "y": 420.0, "angle": 0.0, "domino_type": "Standard", "is_trigger": true}
+  ],
+  "star_thresholds": {"time_3_star": 12.0, "dominoes_3_star": 6}
+}
+''';
+  String _levelName = 'Sandbox';
   Timer? _loopTimer;
   bool _bridgeReady = false;
 
@@ -76,10 +90,13 @@ class _GameScreenState extends State<GameScreen>
         _dimensionsByType[type] = (dimensions.$1, dimensions.$2);
       }
       _bridgeReady = true;
-      configureLevel(
-        maxDominoes: _maxDominoes,
-        timeLimitSeconds: _timeLimitSeconds,
-      );
+      if (!loadLevelJson(levelJson: _defaultLevelJson)) {
+        configureLevel(
+          maxDominoes: _maxDominoes,
+          timeLimitSeconds: _timeLimitSeconds,
+        );
+      }
+      _levelName = currentLevelName() ?? _levelName;
       _refreshDimensions();
       _pollWorld();
       _loopTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
@@ -222,6 +239,11 @@ class _GameScreenState extends State<GameScreen>
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Level: $_levelName',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
                   Text(

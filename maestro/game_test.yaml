@@ -5,8 +5,5 @@ appId: com.example.mobile
 - assertVisible: "Trigger"
 - assertVisible: "Reset World"
 - tapOn: "Trigger"
-- extendedWaitUntil:
-    visible: "No trigger available."
-    timeout: 8000
 - tapOn: "Reset World"
 - assertVisible: "Trigger"
